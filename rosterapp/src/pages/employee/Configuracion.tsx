@@ -15,7 +15,7 @@ export default function Configuracion() {
   useEffect(() => {
     setNombre(user.nombre || 'Empleado');
     setCorreo(user.email || 'correo@empresa.com');
-  }, []);
+  }, [user.nombre, user.email]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,17 +136,19 @@ export default function Configuracion() {
     return localStorage.getItem('rosterapp_theme') === 'dark';
   });
 
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-    
-    if (newDarkMode) {
+  // EFECTO QUE GARANTIZA LA SINCRONIZACIÓN AL CARGAR LA PÁGINA (F5)
+  useEffect(() => {
+    if (isDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('rosterapp_theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('rosterapp_theme', 'light');
     }
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
   };
 
   // NUEVO: Estado para el interruptor de correos

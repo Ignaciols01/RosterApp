@@ -56,6 +56,11 @@ export default function AdminDashboard() {
   const [solicitudARechazar, setSolicitudARechazar] = useState<string | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState('');
   
+  // Estados para el Tablón de Anuncios
+  const [showModalAnuncio, setShowModalAnuncio] = useState(false);
+  const [tituloAnuncio, setTituloAnuncio] = useState('');
+  const [mensajeAnuncio, setMensajeAnuncio] = useState('');
+
   const [elementoAEliminar, setElementoAEliminar] = useState<{ tipo: 'unico', idTurno: string } | { tipo: 'dia', fecha: Date } | null>(null);
   const [alerta, setAlerta] = useState<{titulo: string, texto: string, tipo: 'exito' | 'error'} | null>(null);
 
@@ -178,6 +183,32 @@ export default function AdminDashboard() {
     }
   };
 
+  // CONTROL DE INSERCIÓN DEL TABLÓN CORREGIDO (AUTOR INMUTABLE "ADMINISTRACIÓN")
+  const handlePublicarAnuncio = async () => {
+    if (!tituloAnuncio || !mensajeAnuncio) {
+      setAlerta({ titulo: 'Aviso', texto: 'Rellena el título y el mensaje del anuncio.', tipo: 'error' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('anuncios').insert([{
+        titulo: tituloAnuncio,
+        mensaje: mensajeAnuncio,
+        autor: 'Administración'
+      }]);
+      if (error) throw new Error(error.message);
+      
+      setAlerta({ titulo: '¡Publicado!', texto: 'El aviso se ha distribuido con éxito en la cartelera digital de los empleados.', tipo: 'exito' });
+      setShowModalAnuncio(false);
+      setTituloAnuncio('');
+      setMensajeAnuncio('');
+    } catch (err: any) {
+      setAlerta({ titulo: 'Error', texto: err.message, tipo: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchTurnosCalendario = async () => {
     let fI = ''; let fF = '';
     if (vistaCalendario === 'semana') {
@@ -194,7 +225,7 @@ export default function AdminDashboard() {
       const formated = data.map((t: any) => ({ ...t, usuarios: t.asignaciones ? t.asignaciones.map((a: any) => a.usuarios).filter(Boolean) : [] })).filter((t: any) => t.usuarios.length > 0); 
       setTurnosCalendario(formated);
     }
-    const { data: dS } = await supabase.from('solicitudes_libres').select('id_solicitud, fecha_solicitada, estado, usuarios(id_usuario, nombre)').gte('fecha_solicitada', fI).lte('fecha_solicitada', fF).in('estado', ['pendiente', 'aprobada']);
+    const { data: dS = [] } = await supabase.from('solicitudes_libres').select('id_solicitud, fecha_solicitada, estado, usuarios(id_usuario, nombre)').gte('fecha_solicitada', fI).lte('fecha_solicitada', fF).in('estado', ['pendiente', 'aprobada']);
     if (dS) setSolicitudesCalendario(dS as any);
   };
 
@@ -212,7 +243,7 @@ export default function AdminDashboard() {
       
       let reps = 1;
       if (tipoRepeticion === 'semanal' || tipoRepeticion === 'rotativo') reps = 12;
-      if (tipoRepeticion === 'medio_ano') reps = 26; // 26 semanas = medio año
+      if (tipoRepeticion === 'medio_ano') reps = 26; 
 
       for (let i = 0; i < reps; i++) {
         if (tipoRepeticion === 'rotativo' && i % 2 !== 0) continue;
@@ -319,17 +350,20 @@ export default function AdminDashboard() {
           <h1 className="text-2xl md:text-3xl font-extrabold text-blue-700 dark:text-blue-500 transition-colors duration-300">Panel de Control</h1>
           <p className="text-sm md:text-base text-gray-500 dark:text-slate-400 font-medium transition-colors duration-300">Gestión inteligente de tus turnos y equipo</p>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
-          <button 
-            onClick={() => setShowModalSolicitudes(true)} 
-            className={`flex-1 sm:flex-none justify-center font-bold py-3 px-5 rounded-lg shadow-sm transition-all duration-300 cursor-pointer flex items-center gap-2 border ${solicitudes.length > 0 ? 'bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-500 animate-pulse' : 'bg-white dark:bg-[#1e293b] border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300'}`}
-          >
+        <div className="flex flex-wrap items-stretch sm:items-center gap-3 w-full xl:w-auto">
+          
+          <button onClick={() => setShowModalAnuncio(true)} className="flex-1 sm:flex-none justify-center flex items-center gap-2 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/20 border border-purple-200 dark:border-purple-900/50 font-bold py-3 px-4 rounded-lg shadow-sm transition-all cursor-pointer">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+            Tablón
+          </button>
+
+          <button onClick={() => setShowModalSolicitudes(true)} className={`flex-1 sm:flex-none justify-center font-bold py-3 px-5 rounded-lg shadow-sm transition-all duration-300 cursor-pointer flex items-center gap-2 border ${solicitudes.length > 0 ? 'bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-500 animate-pulse' : 'bg-white dark:bg-[#1e293b] border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300'}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
             Solicitudes ({solicitudes.length})
           </button>
           
           <button onClick={() => setShowModalBorrar(true)} className="flex-1 sm:flex-none justify-center bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 font-bold py-3 px-4 rounded-lg shadow-sm transition-all cursor-pointer">
-            - BORRAR TURNOS
+            - BORRAR
           </button>
           
           <button onClick={() => { setSelectedEmpleado(''); setDiasSeleccionados([]); setShowModal(true); }} className="flex-1 sm:flex-none justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-colors cursor-pointer">
@@ -463,9 +497,7 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* ================================================================================= */}
-      {/* MODAL CREAR TURNO (AVANZADO CON SELECTORES DE HORA Y MEDIO AÑO) */}
-      {/* ================================================================================= */}
+      {/* MODAL CREAR TURNO */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
           <div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-gray-100 dark:border-slate-800 transition-colors duration-300">
@@ -475,9 +507,7 @@ export default function AdminDashboard() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
-            
             <div className="p-6 space-y-5">
-              {/* SELECCIONAR EMPLEADO */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">Seleccionar Empleado</label>
                 <select value={selectedEmpleado} onChange={(e) => setSelectedEmpleado(e.target.value)} className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-[#0f172a] p-3 rounded-xl text-sm font-medium text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm cursor-pointer">
@@ -485,8 +515,6 @@ export default function AdminDashboard() {
                   {empleados.map(emp => <option key={emp.id_usuario} value={emp.id_usuario}>{emp.nombre}</option>)}
                 </select>
               </div>
-
-              {/* DÍAS ESPECÍFICOS */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">Asignar a días específicos</label>
                 <div className="flex flex-wrap gap-2">
@@ -495,8 +523,6 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </div>
-              
-              {/* TIPO DE TURNO (REPETICIÓN) */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">Tipo de Turno</label>
                 <select value={tipoRepeticion} onChange={(e) => setTipoRepeticion(e.target.value)} className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-[#0f172a] p-3 rounded-xl text-sm font-medium text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm cursor-pointer">
@@ -506,8 +532,6 @@ export default function AdminDashboard() {
                   <option value="medio_ano">Repetir medio año (26 semanas)</option>
                 </select>
               </div>
-
-              {/* HORARIO (BOTONES RÁPIDOS + SELECTS) */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">Horario</label>
                 <div className="flex gap-2 mb-3">
@@ -515,7 +539,6 @@ export default function AdminDashboard() {
                   <button type="button" onClick={() => {setHoraInicio('15:00'); setHoraFin('22:00');}} className="flex-1 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold py-2 rounded-xl transition-colors cursor-pointer border border-transparent uppercase">Tarde</button>
                   <button type="button" onClick={() => {setHoraInicio('22:00'); setHoraFin('06:00');}} className="flex-1 bg-purple-50 dark:bg-purple-500/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-[10px] font-bold py-2 rounded-xl transition-colors cursor-pointer border border-transparent uppercase">Noche</button>
                 </div>
-
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center bg-gray-50 dark:bg-[#0f172a] border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden flex-1 focus-within:ring-2 focus-within:ring-blue-500 transition-all shadow-sm">
                     <select value={horaInicio.split(':')[0]} onChange={(e) => setHoraInicio(`${e.target.value}:${horaInicio.split(':')[1]}`)} className="bg-transparent p-3 text-sm font-extrabold text-gray-800 dark:text-white outline-none cursor-pointer appearance-none text-center w-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
@@ -526,9 +549,7 @@ export default function AdminDashboard() {
                       {minutosArray.map(m => <option key={`m-ini-${m}`} value={m}>{m}</option>)}
                     </select>
                   </div>
-                  
                   <span className="text-gray-400 font-bold">-</span>
-                  
                   <div className="flex items-center bg-gray-50 dark:bg-[#0f172a] border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden flex-1 focus-within:ring-2 focus-within:ring-blue-500 transition-all shadow-sm">
                     <select value={horaFin.split(':')[0]} onChange={(e) => setHoraFin(`${e.target.value}:${horaFin.split(':')[1]}`)} className="bg-transparent p-3 text-sm font-extrabold text-gray-800 dark:text-white outline-none cursor-pointer appearance-none text-center w-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
                       {horasArray.map(h => <option key={`h-fin-${h}`} value={h}>{h}</option>)}
@@ -540,128 +561,41 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-
               <div className="pt-4 border-t border-gray-100 dark:border-slate-800 flex gap-3 transition-colors duration-300">
-                <button onClick={() => setShowModal(false)} className="flex-1 bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-sm text-sm">
-                  Cancelar
-                </button>
-                <button onClick={handleGuardarTurno} disabled={loading} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm shadow-md cursor-pointer disabled:opacity-50 transition-colors">
-                  {loading ? 'Guardando...' : 'Confirmar Turno'}
-                </button>
+                <button onClick={() => setShowModal(false)} className="flex-1 bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-sm text-sm">Cancelar</button>
+                <button onClick={handleGuardarTurno} disabled={loading} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm shadow-md cursor-pointer disabled:opacity-50 transition-colors">{loading ? 'Guardando...' : 'Confirmar Turno'}</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ================================================================================= */}
-      {/* MODAL DE ALERTAS DE PLANIFICACIÓN (NUEVO DISEÑO EN LUGAR DE SCROLL) */}
-      {/* ================================================================================= */}
-      {showModalAlertas && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in" onClick={() => setShowModalAlertas(false)}>
-          <div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-colors duration-300" onClick={e => e.stopPropagation()}>
-            <div className="bg-orange-500 p-5 text-white flex justify-between items-center shadow-sm">
-              <div>
-                <h2 className="font-extrabold text-xl">Alertas de Planificación</h2>
-                <p className="text-orange-100 text-sm font-medium mt-0.5">Empleados que necesitan revisión</p>
+      {/* MODAL CREAR ANUNCIO (TABLÓN) */}
+      {showModalAnuncio && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
+          <div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-gray-100 dark:border-slate-800 transition-colors duration-300">
+            <div className="bg-purple-600 p-5 text-white flex justify-between items-center shadow-sm">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+                <h2 className="font-extrabold text-lg">Publicar en el Tablón</h2>
               </div>
-              <button onClick={() => setShowModalAlertas(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors cursor-pointer">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 space-y-3 bg-gray-50 dark:bg-[#0f172a]">
-              {alertasPlanificacion.map(alerta => (
-                <div key={alerta.id_usuario} className={`bg-white dark:bg-[#1e293b] border rounded-xl p-4 flex items-center justify-between shadow-sm transition-colors ${alerta.nivel === 'critico' ? 'border-red-200 dark:border-red-900/50' : 'border-orange-200 dark:border-orange-900/50'}`}>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${alerta.nivel === 'critico' ? 'bg-red-500' : 'bg-orange-500'}`}></span>
-                      <h3 className="font-bold text-gray-800 dark:text-white text-base">{alerta.nombre}</h3>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 ml-4.5">Último turno: <span className="font-bold text-gray-700 dark:text-gray-300">{alerta.ultimaFecha}</span></p>
-                    <p className={`text-[10px] font-black uppercase tracking-widest mt-1.5 ml-4.5 ${alerta.nivel === 'critico' ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'}`}>
-                      {alerta.diasRestantes < 0 ? '¡SIN TURNOS!' : `Quedan ${alerta.diasRestantes} días`}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setShowModalAlertas(false);
-                      setSelectedEmpleado(alerta.id_usuario);
-                      setDiasSeleccionados([]);
-                      setShowModal(true);
-                    }}
-                    className="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 font-bold py-2.5 px-5 rounded-xl transition-colors cursor-pointer text-xs shadow-sm"
-                  >
-                    Programar
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="p-4 border-t border-gray-100 dark:border-slate-800 bg-white dark:bg-[#1e293b] flex justify-end">
-               <button onClick={() => setShowModalAlertas(false)} className="bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-white font-bold py-2.5 px-6 rounded-xl transition-colors cursor-pointer text-sm">
-                 Cerrar
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================================================================================= */}
-      {/* MODAL SOLICITUDES DE DÍAS LIBRES */}
-      {/* ================================================================================= */}
-      {showModalSolicitudes && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in" onClick={() => setShowModalSolicitudes(false)}>
-          <div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-colors duration-300" onClick={e => e.stopPropagation()}>
-            <div className="bg-orange-500 p-5 text-white flex justify-between items-center shadow-sm">
-              <div>
-                <h2 className="font-extrabold text-xl">Solicitudes de Días Libres</h2>
-                <p className="text-orange-100 text-sm font-medium mt-0.5">{solicitudes.length} pendientes de revisión</p>
-              </div>
-              <button onClick={() => setShowModalSolicitudes(false)} className="text-white/80 hover:text-white cursor-pointer hover:bg-black/10 w-9 h-9 rounded-full flex items-center justify-center transition-colors">
+              <button onClick={() => setShowModalAnuncio(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors cursor-pointer">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
-            
-            <div className="p-6 overflow-y-auto flex-1 space-y-4 bg-gray-50 dark:bg-[#0f172a] transition-colors duration-300">
-              {solicitudes.length > 0 ? (
-                solicitudes.map(sol => (
-                  <div key={sol.id_solicitud} className="bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 rounded-xl p-5 shadow-sm transition-colors duration-300">
-                    <h3 className="font-bold text-gray-800 dark:text-white text-base transition-colors duration-300">{sol.usuarios.nombre}</h3>
-                    <p className="text-sm text-gray-500 dark:text-slate-400 mb-4 border-b border-gray-100 dark:border-slate-700 pb-4 transition-colors duration-300">
-                      Desea el <span className="font-bold text-orange-600 dark:text-[#ff7b00]">{new Date(sol.fecha_solicitada).toLocaleDateString('es-ES')}</span> libre
-                    </p>
-
-                    {solicitudARechazar === sol.id_solicitud ? (
-                      <div className="animate-fade-in">
-                        <label className="block text-[10px] font-bold text-red-500 dark:text-red-400 uppercase tracking-widest mb-2 transition-colors duration-300">Motivo del rechazo</label>
-                        <input 
-                          type="text" 
-                          placeholder="Ej: Necesitamos personal ese día..."
-                          value={motivoRechazo}
-                          onChange={(e) => setMotivoRechazo(e.target.value)}
-                          className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-[#0f172a] p-3 rounded-lg text-sm text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-red-500 transition-all shadow-sm mb-4"
-                        />
-                        <div className="flex gap-3">
-                          <button onClick={() => setSolicitudARechazar(null)} className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-white text-sm font-bold py-2.5 rounded-lg transition-colors cursor-pointer">Cancelar</button>
-                          <button onClick={() => gestionarSolicitud(sol.id_solicitud, sol.usuarios.id_usuario, sol.fecha_solicitada, 'rechazada')} className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2.5 rounded-lg transition-colors cursor-pointer shadow-sm">Confirmar Rechazo</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex gap-3">
-                        <button onClick={() => gestionarSolicitud(sol.id_solicitud, sol.usuarios.id_usuario, sol.fecha_solicitada, 'aprobada')} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold transition-colors cursor-pointer text-sm shadow-sm">
-                          Aprobar
-                        </button>
-                        <button onClick={() => setSolicitudARechazar(sol.id_solicitud)} className="flex-1 bg-white dark:bg-transparent border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 py-2.5 rounded-lg font-bold transition-colors cursor-pointer text-sm shadow-sm dark:shadow-none">
-                          Rechazar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 dark:text-slate-400 font-bold transition-colors duration-300">No hay solicitudes pendientes.</p>
-                </div>
-              )}
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">Título del Aviso</label>
+                <input type="text" placeholder="Ej. Inventario Anual, Reunión..." value={tituloAnuncio} onChange={(e) => setTituloAnuncio(e.target.value)} className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-[#0f172a] p-3 rounded-xl text-sm font-medium text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-sm" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2">Mensaje</label>
+                <textarea rows={4} placeholder="Escribe aquí la información para todos los empleados..." value={mensajeAnuncio} onChange={(e) => setMensajeAnuncio(e.target.value)} className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-[#0f172a] p-3 rounded-xl text-sm font-medium text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-sm resize-none"></textarea>
+              </div>
+              <div className="pt-4 border-t border-gray-100 dark:border-slate-800 flex gap-3 transition-colors duration-300">
+                <button onClick={() => setShowModalAnuncio(false)} className="flex-1 bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-sm text-sm">Cancelar</button>
+                <button onClick={handlePublicarAnuncio} disabled={loading} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl text-sm shadow-md cursor-pointer disabled:opacity-50 transition-colors">{loading ? 'Enviando...' : 'Publicar Aviso'}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -680,16 +614,11 @@ export default function AdminDashboard() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
-            
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
               {getTurnosParaElDia(diaModalSeleccionado).length > 0 ? (
                 getTurnosParaElDia(diaModalSeleccionado).map(turno => (
                   <div key={turno.id_turno} className="bg-gray-50 dark:bg-[#0f172a] border border-gray-200 dark:border-slate-700 rounded-xl p-4 shadow-sm relative group transition-colors duration-300">
-                    <button 
-                      onClick={() => setElementoAEliminar({ tipo: 'unico', idTurno: turno.id_turno })}
-                      className="absolute top-4 right-4 bg-red-100 hover:bg-red-200 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 p-2 rounded-lg transition-colors cursor-pointer"
-                      title="Eliminar este turno"
-                    >
+                    <button onClick={() => setElementoAEliminar({ tipo: 'unico', idTurno: turno.id_turno })} className="absolute top-4 right-4 bg-red-100 hover:bg-red-200 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 p-2 rounded-lg transition-colors cursor-pointer">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>
                     <div className="flex items-center space-x-2 mb-3">
@@ -700,9 +629,7 @@ export default function AdminDashboard() {
                     <div className="space-y-2 pr-10">
                       {turno.usuarios.map((u, idx) => (
                         <div key={idx} className="flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                            {u.nombre.substring(0,2).toUpperCase()}
-                          </div>
+                          <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">{u.nombre.substring(0,2).toUpperCase()}</div>
                           <span className="font-bold text-gray-800 dark:text-white text-sm transition-colors duration-300">{u.nombre}</span>
                         </div>
                       ))}
@@ -711,27 +638,19 @@ export default function AdminDashboard() {
                 ))
               ) : (
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors duration-300">
-                    <svg className="w-8 h-8 text-gray-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4M8 16l-4-4 4-4"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 12a8 8 0 018-8 8 8 0 01-8-8z"></path></svg>
-                  </div>
                   <p className="text-gray-500 dark:text-slate-400 font-bold transition-colors duration-300">No hay nadie asignado este día</p>
                 </div>
               )}
             </div>
-
             <div className="p-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex gap-3 transition-colors duration-300">
-              <button onClick={() => setElementoAEliminar({ tipo: 'dia', fecha: diaModalSeleccionado })} className="flex-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold py-3 rounded-xl border border-red-200 dark:border-red-900/50 transition-colors cursor-pointer shadow-sm text-sm uppercase">
-                Borrar todo el día
-              </button>
-              <button onClick={() => setDiaModalSeleccionado(null)} className="flex-1 bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-sm text-sm uppercase">
-                Cerrar
-              </button>
+              <button onClick={() => setElementoAEliminar({ tipo: 'dia', fecha: diaModalSeleccionado })} className="flex-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold py-3 rounded-xl border border-red-200 dark:border-red-900/50 transition-colors cursor-pointer shadow-sm text-sm uppercase">Borrar todo el día</button>
+              <button onClick={() => setDiaModalSeleccionado(null)} className="flex-1 bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-sm text-sm uppercase">Cerrar</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL PARA BORRAR TURNOS MASIVAMENTE */}
+      {/* MODALES ADICIONALES */}
       {showModalBorrar && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in" onClick={() => setShowModalBorrar(false)}>
           <div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col transition-colors duration-300" onClick={e => e.stopPropagation()}>
@@ -740,22 +659,10 @@ export default function AdminDashboard() {
                 <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-400 transition-colors duration-300">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                 </div>
-                <div>
-                  <h2 className="text-xl font-extrabold text-gray-800 dark:text-white transition-colors duration-300">Borrado Masivo</h2>
-                  <p className="text-xs text-gray-500 dark:text-slate-400 font-medium mt-0.5 transition-colors duration-300">Elimina turnos por rango de fechas</p>
-                </div>
+                <div><h2 className="text-xl font-extrabold text-gray-800 dark:text-white transition-colors duration-300">Borrado Masivo</h2></div>
               </div>
-              <button onClick={() => setShowModalBorrar(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition-colors cursor-pointer p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-              </button>
             </div>
-
             <div className="p-6 space-y-5">
-              <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-4 flex gap-3 transition-colors duration-300">
-                <svg className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <p className="text-xs text-red-800 dark:text-red-300 font-medium transition-colors duration-300">Esta acción eliminará todos los turnos del empleado en el rango seleccionado. Esta acción no se puede deshacer.</p>
-              </div>
-
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2 transition-colors duration-300">Seleccionar Empleado</label>
                 <select value={borrarEmpleado} onChange={(e) => setBorrarEmpleado(e.target.value)} className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-[#0f172a] p-3 rounded-xl text-sm font-medium text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-red-500 transition-all shadow-sm cursor-pointer">
@@ -763,78 +670,82 @@ export default function AdminDashboard() {
                   {empleados.map(emp => <option key={emp.id_usuario} value={emp.id_usuario}>{emp.nombre}</option>)}
                 </select>
               </div>
-              
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2 transition-colors duration-300">Desde (Fecha de Inicio)</label>
-                  <input type="date" value={borrarFechaInicio} onChange={(e) => setBorrarFechaInicio(e.target.value)} className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-[#0f172a] p-3 rounded-xl text-sm font-medium text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-red-500 transition-all shadow-sm dark:[color-scheme:dark]" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-2 transition-colors duration-300">Hasta (Fecha de Fin)</label>
-                  <input type="date" value={borrarFechaFin} onChange={(e) => setBorrarFechaFin(e.target.value)} className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-[#0f172a] p-3 rounded-xl text-sm font-medium text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-red-500 transition-all shadow-sm dark:[color-scheme:dark]" />
-                </div>
+                <div><input type="date" value={borrarFechaInicio} onChange={(e) => setBorrarFechaInicio(e.target.value)} className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-[#0f172a] p-3 rounded-xl text-sm font-medium text-gray-800 dark:text-white" /></div>
+                <div><input type="date" value={borrarFechaFin} onChange={(e) => setBorrarFechaFin(e.target.value)} className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-[#0f172a] p-3 rounded-xl text-sm font-medium text-gray-800 dark:text-white" /></div>
               </div>
             </div>
-
             <div className="p-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex gap-3 transition-colors duration-300">
-              <button onClick={() => setShowModalBorrar(false)} className="flex-1 bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-sm text-sm">
-                Cancelar
-              </button>
-              <button onClick={handleBorrarMasivo} disabled={loading} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-md text-sm disabled:opacity-50">
-                {loading ? 'Borrando...' : 'Confirmar y Borrar'}
-              </button>
+              <button onClick={() => setShowModalBorrar(false)} className="flex-1 bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-sm text-sm">Cancelar</button>
+              <button onClick={handleBorrarMasivo} disabled={loading} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-md text-sm disabled:opacity-50">{loading ? 'Borrando...' : 'Confirmar y Borrar'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* CONFIRMAR ELIMINACIÓN DE TURNOS */}
+      {showModalAlertas && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in" onClick={() => setShowModalAlertas(false)}>
+          <div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-colors duration-300" onClick={e => e.stopPropagation()}>
+            <div className="bg-orange-500 p-5 text-white flex justify-between items-center shadow-sm">
+              <div><h2 className="font-extrabold text-xl">Alertas de Planificación</h2></div>
+              <button onClick={() => setShowModalAlertas(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors cursor-pointer"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 space-y-3 bg-gray-50 dark:bg-[#0f172a]">
+              {alertasPlanificacion.map(alerta => (
+                <div key={alerta.id_usuario} className={`bg-white dark:bg-[#1e293b] border rounded-xl p-4 flex items-center justify-between shadow-sm transition-colors ${alerta.nivel === 'critico' ? 'border-red-200 dark:border-red-900/50' : 'border-orange-200 dark:border-orange-900/50'}`}>
+                  <div>
+                    <h3 className="font-bold text-gray-800 dark:text-white text-base">{alerta.nombre}</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">Último turno: <span className="font-bold text-gray-700 dark:text-gray-300">{alerta.ultimaFecha}</span></p>
+                  </div>
+                  <button onClick={() => { setShowModalAlertas(false); setSelectedEmpleado(alerta.id_usuario); setDiasSeleccionados([]); setShowModal(true); }} className="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-bold py-2.5 px-5 rounded-xl cursor-pointer text-xs shadow-sm">Programar</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showModalSolicitudes && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in" onClick={() => setShowModalSolicitudes(false)}>
+          <div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-colors duration-300" onClick={e => e.stopPropagation()}>
+            <div className="bg-orange-500 p-5 text-white flex justify-between items-center shadow-sm">
+              <div><h2 className="font-extrabold text-xl">Solicitudes</h2></div>
+              <button onClick={() => setShowModalSolicitudes(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors cursor-pointer"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 space-y-4 bg-gray-50 dark:bg-[#0f172a] transition-colors duration-300">
+              {solicitudes.length > 0 ? (
+                solicitudes.map(sol => (
+                  <div key={sol.id_solicitud} className="bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 rounded-xl p-5 shadow-sm transition-colors duration-300">
+                    <h3 className="font-bold text-gray-800 dark:text-white text-base transition-colors duration-300">{sol.usuarios.nombre}</h3>
+                    <p className="text-sm text-gray-500 dark:text-slate-400 mb-4 border-b border-gray-100 dark:border-slate-700 pb-4 transition-colors duration-300">Desea el <span className="font-bold text-orange-600 dark:text-[#ff7b00]">{new Date(sol.fecha_solicitada).toLocaleDateString('es-ES')}</span> libre</p>
+                    {solicitudARechazar === sol.id_solicitud ? (
+                      <div className="animate-fade-in">
+                        <input type="text" placeholder="Ej: Necesitamos personal..." value={motivoRechazo} onChange={(e) => setMotivoRechazo(e.target.value)} className="w-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-[#0f172a] p-3 rounded-lg text-sm mb-4" />
+                        <div className="flex gap-3">
+                          <button onClick={() => setSolicitudARechazar(null)} className="flex-1 bg-gray-200 text-gray-700 text-sm font-bold py-2.5 rounded-lg cursor-pointer">Cancelar</button>
+                          <button onClick={() => gestionarSolicitud(sol.id_solicitud, sol.usuarios.id_usuario, sol.fecha_solicitada, 'rechazada')} className="flex-1 bg-red-600 text-white text-sm font-bold py-2.5 rounded-lg cursor-pointer">Rechazar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <button onClick={() => gestionarSolicitud(sol.id_solicitud, sol.usuarios.id_usuario, sol.fecha_solicitada, 'aprobada')} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold transition-colors cursor-pointer text-sm shadow-sm">Aprobar</button>
+                        <button onClick={() => setSolicitudARechazar(sol.id_solicitud)} className="flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 py-2.5 rounded-lg font-bold transition-colors cursor-pointer text-sm shadow-sm">Rechazar</button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (<div className="text-center py-8"><p className="text-gray-500 font-bold">No hay solicitudes.</p></div>)}
+            </div>
+          </div>
+        </div>
+      )}
+
       {elementoAEliminar && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[300] p-4 animate-fade-in" onClick={() => setElementoAEliminar(null)}>
-          <div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col p-6 text-center border border-gray-100 dark:border-slate-800 transition-colors duration-300" onClick={e => e.stopPropagation()}>
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white dark:border-slate-800 shadow-sm transition-colors duration-300">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-            </div>
-            <h2 className="text-xl font-extrabold text-gray-800 dark:text-white mb-2 transition-colors duration-300">¿Confirmar borrado?</h2>
-            <p className="text-gray-500 dark:text-slate-400 text-sm mb-6 transition-colors duration-300">
-              {elementoAEliminar.tipo === 'unico' 
-                ? 'Esta acción no se puede deshacer y se eliminará de la agenda del empleado.' 
-                : 'Esta acción borrará TODOS los turnos de este día para todos los empleados.'}
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setElementoAEliminar(null)} className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer text-sm">
-                Cancelar
-              </button>
-              <button 
-                onClick={confirmarEliminacion} 
-                disabled={loading}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-md text-sm disabled:opacity-50"
-              >
-                {loading ? 'Borrando...' : 'Sí, eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[300] p-4"><div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-sm p-6 text-center"><h2 className="text-xl font-extrabold text-gray-800 dark:text-white mb-6">¿Confirmar borrado?</h2><div className="flex gap-3"><button onClick={() => setElementoAEliminar(null)} className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl text-sm">Cancelar</button><button onClick={confirmarEliminacion} className="flex-1 bg-red-600 text-white font-bold py-3 rounded-xl text-sm">Sí, eliminar</button></div></div></div>
       )}
 
-      {/* ALERTAS GLOBALES */}
       {alerta && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[400] p-4 animate-fade-in" onClick={() => setAlerta(null)}>
-          <div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col p-6 text-center border border-gray-100 dark:border-slate-800 transition-colors duration-300" onClick={e => e.stopPropagation()}>
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors duration-300 ${alerta.tipo === 'exito' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400'}`}>
-              {alerta.tipo === 'exito' ? (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              ) : (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-              )}
-            </div>
-            <h2 className="text-xl font-extrabold text-gray-800 dark:text-white mb-2 transition-colors duration-300">{alerta.titulo}</h2>
-            <p className="text-gray-500 dark:text-slate-400 text-sm mb-6 transition-colors duration-300">{alerta.texto}</p>
-            <button onClick={() => setAlerta(null)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-md text-sm">
-              Aceptar
-            </button>
-          </div>
-        </div>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[400] p-4"><div className="bg-white dark:bg-[#1e293b] rounded-2xl w-full max-w-sm p-6 text-center"><h2 className="text-xl font-extrabold text-gray-800 dark:text-white mb-2">{alerta.titulo}</h2><p className="text-gray-500 dark:text-slate-400 text-sm mb-6">{alerta.texto}</p><button onClick={() => setAlerta(null)} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl text-sm">Aceptar</button></div></div>
       )}
     </div>
   );

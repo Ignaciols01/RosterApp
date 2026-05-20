@@ -11,10 +11,12 @@ import AdminDashboard from './pages/admin/Dashboard';
 import AdminEmpleados from './pages/admin/Empleados';
 import AdminInformes from './pages/admin/Informes';
 import AdminConfiguracion from './pages/admin/Configuracion';
+import AdminMensajes from './pages/admin/Mensajes';
 
 import EmployeeMisTurnos from './pages/employee/MisTurnos';
 import EmployeeFichaje from './pages/employee/Fichaje';
 import EmployeeConfiguracion from './pages/employee/Configuracion';
+import EmployeeMensajes from './pages/employee/Mensajes';
 
 // Inicialización de Modo Oscuro al arrancar la app
 if (localStorage.getItem('rosterapp_theme') === 'dark') {
@@ -48,6 +50,7 @@ export default function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="empleados" element={<AdminEmpleados />} />
           <Route path="informes" element={<AdminInformes />} />
+          <Route path="mensajes" element={<AdminMensajes />} />
           <Route path="configuracion" element={<AdminConfiguracion />} />
         </Route>
 
@@ -55,6 +58,7 @@ export default function App() {
         <Route path="/empleado" element={<ProtectedRoute allowedRole="empleado"><EmployeeLayout /></ProtectedRoute>}>
           <Route path="turnos" element={<EmployeeMisTurnos />} />
           <Route path="fichaje" element={<EmployeeFichaje />} />
+          <Route path="mensajes" element={<EmployeeMensajes />} />
           <Route path="configuracion" element={<EmployeeConfiguracion />} />
         </Route>
 

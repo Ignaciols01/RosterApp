@@ -8,9 +8,9 @@ export default function EmployeeLayout() {
   const [nombreUsuario, setNombreUsuario] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // Estados para el buzón de notificaciones
   const [notificaciones, setNotificaciones] = useState<any[]>([]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
 
   useEffect(() => {
     const cargarDatos = () => {
@@ -40,8 +40,19 @@ export default function EmployeeLayout() {
     window.addEventListener('employeeNameUpdated', handleNameUpdate);
     
     const user = JSON.parse(localStorage.getItem('rosterapp_user') || '{}');
-    const notifInterval = setInterval(() => {
-      if (user.id) fetchNotificaciones(user.id);
+    const notifInterval = setInterval(async () => {
+      if (user.id) {
+        fetchNotificaciones(user.id);
+        
+        // Refrescar el número de mensajes
+        const miId = user.id_usuario || user.id;
+        const { count } = await supabase
+          .from('mensajes')
+          .select('*', { count: 'exact', head: true })
+          .eq('receptor_id', miId)
+          .eq('leido', false);
+        setMensajesSinLeer(count || 0);
+      }
     }, 10000);
 
     return () => {
@@ -77,10 +88,8 @@ export default function EmployeeLayout() {
   return (
     <div className="flex flex-col min-h-screen bg-[#f8fafc] dark:bg-[#0b1120] transition-colors duration-300 font-sans">
       
-      {/* CABECERA PRINCIPAL (HEADER) */}
       <header className="bg-white dark:bg-[#0f172a] border-b border-gray-200 dark:border-slate-800/80 flex items-center justify-between px-4 md:px-8 py-3 shadow-sm md:shadow-md z-40 relative transition-colors duration-300">
         
-        {/* LADO IZQUIERDO: LOGO Y NAVEGACIÓN */}
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-1.5 rounded-lg shadow-sm">
@@ -91,18 +100,22 @@ export default function EmployeeLayout() {
             <span className="text-xl font-extrabold text-blue-700 dark:text-blue-400 tracking-tight">RosterApp</span>
           </div>
 
-          {/* Links (Ocultos en móvil) */}
           <nav className="hidden md:flex items-center gap-2">
             <NavLink to="/empleado/fichaje" className={({isActive}) => `px-4 py-2 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-blue-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>Fichar</NavLink>
             <NavLink to="/empleado/turnos" className={({isActive}) => `px-4 py-2 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-blue-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>Mis Turnos</NavLink>
+            
+            <NavLink to="/empleado/mensajes" className={({isActive}) => `relative px-4 py-2 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-blue-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
+              Mensajes
+              {mensajesSinLeer > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white shadow-sm ring-2 ring-white dark:ring-[#0f172a]">{mensajesSinLeer}</span>
+              )}
+            </NavLink>
+            
             <NavLink to="/empleado/configuracion" className={({isActive}) => `px-4 py-2 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-blue-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>Configuración</NavLink>
           </nav>
         </div>
 
-        {/* LADO DERECHO: NOTIFICACIONES, PERFIL Y LOGOUT */}
         <div className="hidden md:flex items-center gap-6">
-          
-          {/* CAMPANA DE NOTIFICACIONES */}
           <div className="relative">
             <button onClick={() => setShowNotifPanel(!showNotifPanel)} className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white transition-colors cursor-pointer bg-slate-100 dark:bg-slate-800/50 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
@@ -114,7 +127,6 @@ export default function EmployeeLayout() {
               )}
             </button>
 
-            {/* PANEL DESPLEGABLE DE MENSAJES */}
             {showNotifPanel && (
                <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden z-50 animate-fade-in origin-top-right">
                   <div className="bg-slate-50 dark:bg-slate-900/80 p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
@@ -148,7 +160,6 @@ export default function EmployeeLayout() {
             )}
           </div>
 
-          {/* INFO DE PERFIL */}
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold text-slate-800 dark:text-white">Hola, {nombreUsuario}</span>
             {avatar ? (
@@ -165,15 +176,16 @@ export default function EmployeeLayout() {
           </button>
         </div>
 
-        {/* BOTÓN HAMBURGUESA MOBILE */}
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              {isMobileMenuOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />}
            </svg>
+           {!isMobileMenuOpen && (notificaciones.length > 0 || mensajesSinLeer > 0) && (
+              <span className="absolute top-2 right-2 flex h-2.5 w-2.5 bg-red-500 rounded-full border border-white dark:border-[#0f172a]"></span>
+           )}
         </button>
       </header>
 
-      {/* MENÚ MÓVIL DESPLEGABLE */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white dark:bg-[#0f172a] border-b border-gray-200 dark:border-slate-800 p-4 animate-fade-in z-30 relative shadow-xl">
            
@@ -197,13 +209,18 @@ export default function EmployeeLayout() {
            <nav className="flex flex-col gap-2">
             <NavLink to="/empleado/fichaje" onClick={() => setIsMobileMenuOpen(false)} className={({isActive}) => `px-4 py-3 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>Fichar</NavLink>
             <NavLink to="/empleado/turnos" onClick={() => setIsMobileMenuOpen(false)} className={({isActive}) => `px-4 py-3 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>Mis Turnos</NavLink>
+            
+            <NavLink to="/empleado/mensajes" onClick={() => setIsMobileMenuOpen(false)} className={({isActive}) => `flex justify-between items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
+              Mensajes
+              {mensajesSinLeer > 0 && <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{mensajesSinLeer}</span>}
+            </NavLink>
+
             <NavLink to="/empleado/configuracion" onClick={() => setIsMobileMenuOpen(false)} className={({isActive}) => `px-4 py-3 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>Configuración</NavLink>
             <button onClick={handleLogout} className="text-left px-4 py-3 rounded-xl text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 mt-2 border-t border-gray-100 dark:border-slate-800">Cerrar Sesión</button>
           </nav>
         </div>
       )}
 
-      {/* CONTENIDO PRINCIPAL DINÁMICO */}
       <main className="flex-1 w-full relative z-0">
         <Outlet />
       </main>
