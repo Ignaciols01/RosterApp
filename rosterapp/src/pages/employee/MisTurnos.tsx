@@ -27,11 +27,11 @@ export default function EmployeeMisTurnos() {
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [misSolicitudes, setMisSolicitudes] = useState<Solicitud[]>([]);
   
-  // ESTADOS DEL USUARIO PARA LA BARRA DE PROGRESO
+  // Mis estados para la barra de progreso
   const [diasLibres, setDiasLibres] = useState(0);
   const [findesTrabajados, setFindesTrabajados] = useState(0);
   
-  // ESTADOS DE LOS ANUNCIOS
+  // Mis estados para los anuncios
   const [anuncios, setAnuncios] = useState<Anuncio[]>([]);
   
   const [loading, setLoading] = useState(true);
@@ -45,6 +45,7 @@ export default function EmployeeMisTurnos() {
   
   const [alerta, setAlerta] = useState<{titulo: string, texto: string, tipo: 'exito' | 'error'} | null>(null);
 
+  // Obtengo mis datos de sesión
   const user = JSON.parse(localStorage.getItem('rosterapp_user') || '{}');
   const hoyStr = new Date().toISOString().split('T')[0];
 
@@ -56,6 +57,45 @@ export default function EmployeeMisTurnos() {
       fetchAnuncios();
     }
   }, [fechaReferencia, vistaCalendario]);
+
+  // Me suscribo en tiempo real a mis tablas (anuncios y solicitudes)
+  useEffect(() => {
+    if (!user.id) return;
+
+    // Canal para anuncios
+    const channelAnuncios = supabase
+      .channel('realtime:anuncios_empleado')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'anuncios' },
+        (payload) => {
+          console.log('Cambio detectado en mis anuncios:', payload);
+          fetchAnuncios();
+        }
+      )
+      .subscribe();
+
+    // Canal para las solicitudes libres
+    const channelSolicitudes = supabase
+      .channel('realtime:solicitudes_empleado')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'solicitudes_libres' },
+        (payload) => {
+          console.log('Cambio detectado en mis solicitudes:', payload);
+          // Refresco mis solicitudes para ver al instante si me la han aprobado o rechazado
+          // ¡Esto también recarga mis días libres de forma automática!
+          fetchMisSolicitudes();
+        }
+      )
+      .subscribe();
+
+    // Limpio la suscripción cuando desmonto el componente
+    return () => {
+      supabase.removeChannel(channelAnuncios);
+      supabase.removeChannel(channelSolicitudes);
+    };
+  }, [user.id]);
 
   const fetchDatosUsuario = async () => {
     const { data, error } = await supabase
@@ -89,7 +129,7 @@ export default function EmployeeMisTurnos() {
       .limit(3);
       
     if (!error && data) {
-      // Filtramos los anuncios que el usuario ya ha marcado como leídos
+      // Filtro los anuncios que ya he marcado como leídos
       const leidos = JSON.parse(localStorage.getItem(`rosterapp_anuncios_leidos_${user.id}`) || '[]');
       const anunciosNoLeidos = data.filter((anuncio: Anuncio) => !leidos.includes(anuncio.id_anuncio));
       setAnuncios(anunciosNoLeidos);
@@ -100,6 +140,7 @@ export default function EmployeeMisTurnos() {
     const leidosActuales = JSON.parse(localStorage.getItem(`rosterapp_anuncios_leidos_${user.id}`) || '[]');
     const nuevosLeidos = [...leidosActuales, id_anuncio];
     localStorage.setItem(`rosterapp_anuncios_leidos_${user.id}`, JSON.stringify(nuevosLeidos));
+    // Actualizo mi estado local para ocultarlo inmediatamente
     setAnuncios(anuncios.filter(a => a.id_anuncio !== id_anuncio));
   };
 
@@ -233,7 +274,7 @@ export default function EmployeeMisTurnos() {
   return (
     <div className="p-4 md:p-8 bg-gray-50 dark:bg-slate-900 min-h-screen transition-colors duration-300 max-w-7xl mx-auto">
       
-      {/* CABECERA CON BARRA DE PROGRESO */}
+      {/* Cabecera con mi barra de progreso */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-8 gap-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-blue-700 dark:text-blue-400">Mis Turnos</h1>
@@ -277,7 +318,7 @@ export default function EmployeeMisTurnos() {
         </div>
       </div>
 
-      {/* TABLÓN DE ANUNCIOS CON BOTÓN "MARCAR COMO LEÍDO" */}
+      {/* Tablón de anuncios con botón para marcar como leído */}
       {anuncios.length > 0 && (
         <div className="mb-8 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm transition-colors duration-300">
           <h3 className="text-xs font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -313,7 +354,7 @@ export default function EmployeeMisTurnos() {
         </div>
       )}
 
-      {/* CONTROLES DE CALENDARIO */}
+      {/* Controles de mi calendario */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
         <h2 className="text-lg md:text-xl font-bold text-gray-700 dark:text-white capitalize truncate w-full md:w-auto">
           {vistaCalendario === 'semana' ? 'Semana Actual | ' : 'Mes Actual | '}
@@ -333,7 +374,7 @@ export default function EmployeeMisTurnos() {
         </div>
       </div>
 
-      {/* MATRIZ DE CALENDARIO */}
+      {/* Matriz de mi calendario */}
       <div className="overflow-x-auto pb-4 hide-scrollbar">
         {vistaCalendario === 'semana' ? (
           <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-slate-700 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-sm min-w-[700px]">
@@ -418,7 +459,7 @@ export default function EmployeeMisTurnos() {
         )}
       </div>
 
-      {/* MODAL DEL DÍA CON CORRECCIÓN DE CORTES (max-h-calc y overflow-y-auto) */}
+      {/* Modal de los detalles del día con corrección de cortes */}
       {diaModalSeleccionado && (() => {
         const turnosModal = getTurnosParaElDia(diaModalSeleccionado);
         const solModal = getSolicitudParaElDia(diaModalSeleccionado);
@@ -479,7 +520,7 @@ export default function EmployeeMisTurnos() {
         );
       })()}
 
-      {/* MODAL SOLICITAR DÍA LIBRE CON CORRECCIÓN DE CORTES */}
+      {/* Modal para solicitar día libre con corrección de cortes */}
       {showModalLibre && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in" onClick={() => setShowModalLibre(false)}>
           <div 
@@ -526,7 +567,7 @@ export default function EmployeeMisTurnos() {
         </div>
       )}
 
-      {/* ALERTAS CON CORRECCIÓN DE CORTES */}
+      {/* Mis alertas con corrección de cortes */}
       {alerta && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[400] p-4 animate-fade-in" onClick={() => setAlerta(null)}>
           <div 

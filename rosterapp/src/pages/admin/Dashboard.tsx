@@ -25,6 +25,15 @@ interface AlertaPlanificacion {
   nivel: 'critico' | 'aviso';
 }
 
+// Añado la interfaz para mis anuncios
+interface Anuncio {
+  id?: string;
+  titulo: string;
+  mensaje: string;
+  autor: string;
+  created_at?: string;
+}
+
 export default function AdminDashboard() {
   const [totalEmpleados, setTotalEmpleados] = useState(0);
   const [turnosSemana, setTurnosSemana] = useState(0);
@@ -61,13 +70,17 @@ export default function AdminDashboard() {
   const [solicitudARechazar, setSolicitudARechazar] = useState<string | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState('');
   
-  // Estados para el Tablón de Anuncios
+  // Mis estados para el Tablón de Anuncios
   const [showModalAnuncio, setShowModalAnuncio] = useState(false);
   const [tituloAnuncio, setTituloAnuncio] = useState('');
   const [mensajeAnuncio, setMensajeAnuncio] = useState('');
+  const [anuncios, setAnuncios] = useState<Anuncio[]>([]);
 
   const [elementoAEliminar, setElementoAEliminar] = useState<{ tipo: 'unico', idTurno: string } | { tipo: 'dia', fecha: Date } | null>(null);
   const [alerta, setAlerta] = useState<{titulo: string, texto: string, tipo: 'exito' | 'error'} | null>(null);
+
+  // Gatillo infalible para actualizar datos en tiempo real sin problemas de "stale closures"
+  const [recargarEnTiempoReal, setRecargarEnTiempoReal] = useState(0);
 
   const horasArray = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const minutosArray = ['00', '15', '30', '45'];
@@ -75,15 +88,58 @@ export default function AdminDashboard() {
   useEffect(() => { cargarTodo(); }, []);
   useEffect(() => { fetchTurnosCalendario(); }, [fechaReferencia, vistaCalendario]);
 
+  // Me suscribo en tiempo real a mis tablas combinando ambos canales en uno
+  useEffect(() => {
+    const canalSupabase = supabase
+      .channel('admin_dashboard_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'anuncios' },
+        () => {
+          console.log('Cambio detectado en anuncios (Admin)');
+          // Disparo mi gatillo
+          setRecargarEnTiempoReal(prev => prev + 1);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'solicitudes_libres' },
+        () => {
+          console.log('Cambio detectado en solicitudes (Admin)');
+          // Disparo mi gatillo
+          setRecargarEnTiempoReal(prev => prev + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canalSupabase);
+    };
+  }, []);
+
+  // Escucho a mi propio gatillo para refrescar los datos frescos
+  useEffect(() => {
+    if (recargarEnTiempoReal > 0) {
+      fetchAnuncios();
+      fetchSolicitudes();
+      fetchTurnosCalendario();
+    }
+  }, [recargarEnTiempoReal]);
+
   const cargarTodo = async () => {
     setLoading(true);
     try {
-      await Promise.all([fetchStats(), fetchEmpleados(), fetchSolicitudes()]);
+      await Promise.all([fetchStats(), fetchEmpleados(), fetchSolicitudes(), fetchAnuncios()]);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchAnuncios = async () => {
+    const { data } = await supabase.from('anuncios').select('*').order('created_at', { ascending: false });
+    if (data) setAnuncios(data);
   };
 
   useEffect(() => {
@@ -198,7 +254,7 @@ export default function AdminDashboard() {
       }]);
 
       setSolicitudARechazar(null); setMotivoRechazo('');
-      await cargarTodo(); await fetchTurnosCalendario();
+      // Esto también disparará el realtime localmente, por lo que todo se actualizará
     } catch (e) {
       setAlerta({ titulo: 'Error', texto: 'No se pudo procesar la solicitud.', tipo: 'error' });
     } finally {
@@ -221,7 +277,7 @@ export default function AdminDashboard() {
       if (error) throw new Error(error.message);
       
       setAlerta({ titulo: '¡Publicado!', texto: 'El aviso se ha distribuido con éxito en la cartelera digital de los empleados.', tipo: 'exito' });
-      setShowModalAnuncio(false);
+      
       setTituloAnuncio('');
       setMensajeAnuncio('');
     } catch (err: any) {
@@ -254,7 +310,7 @@ export default function AdminDashboard() {
   const toggleDia = (dia: string) => { setDiasSeleccionados(prev => prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]); };
 
   const handleGuardarTurno = async () => {
-    // Si ya está guardando, ignoro el clic para no duplicar correos ni datos
+    // Si ya estoy guardando, ignoro el clic para no duplicar correos ni datos
     if (guardandoTurno) return;
     
     if (!selectedEmpleado || diasSeleccionados.length === 0) {
@@ -471,8 +527,8 @@ export default function AdminDashboard() {
                   <div className="flex-1 flex flex-col p-2 space-y-2 overflow-y-auto pointer-events-none">
                     
                     {solsDelDia.map(sol => (
-                      <div key={sol.id_solicitud} className={`p-2 rounded-lg shadow-sm border transition-colors duration-300 ${sol.estado === 'pendiente' ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-500/10 dark:border-orange-500/30 dark:text-orange-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'}`}>
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest block">{sol.estado === 'pendiente' ? 'SOLICITADO' : 'LIBRE'}</span>
+                      <div key={sol.id_solicitud} className={`p-2 rounded-lg shadow-sm border transition-colors duration-300 ${sol.estado === 'pendiente' ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-500/10 dark:border-orange-500/30 dark:text-orange-400' : sol.estado === 'aprobada' ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400' : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-400'}`}>
+                        <span className="text-[9px] font-extrabold uppercase tracking-widest block">{sol.estado === 'pendiente' ? 'SOLICITADO' : sol.estado === 'rechazada' ? 'RECHAZADO' : 'LIBRE'}</span>
                         <span className="text-xs font-bold block">{sol.usuarios.nombre}</span>
                       </div>
                     ))}
@@ -513,8 +569,8 @@ export default function AdminDashboard() {
                     <div className="flex-1 overflow-y-auto space-y-1 pointer-events-none p-0.5">
                       
                       {solsDelDia.map(sol => (
-                        <div key={sol.id_solicitud} className={`px-1 py-0.5 rounded text-[9px] border truncate flex flex-col transition-colors duration-300 ${sol.estado === 'pendiente' ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-500/10 dark:border-orange-500/30 dark:text-orange-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'}`}>
-                          <span className="font-extrabold">{sol.usuarios.nombre.split(' ')[0]} (Libre)</span>
+                        <div key={sol.id_solicitud} className={`px-1 py-0.5 rounded text-[9px] border truncate flex flex-col transition-colors duration-300 ${sol.estado === 'pendiente' ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-500/10 dark:border-orange-500/30 dark:text-orange-400' : sol.estado === 'aprobada' ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400' : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-400'}`}>
+                          <span className="font-extrabold">{sol.usuarios.nombre.split(' ')[0]} {sol.estado === 'pendiente' ? '(Pdte)' : sol.estado === 'rechazada' ? '(Rech)' : '(Libre)'}</span>
                         </div>
                       ))}
 
@@ -637,6 +693,23 @@ export default function AdminDashboard() {
               <div className="pt-4 border-t border-gray-100 dark:border-slate-800 flex gap-3 transition-colors duration-300">
                 <button onClick={() => setShowModalAnuncio(false)} className="flex-1 bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-sm text-sm">Cancelar</button>
                 <button onClick={handlePublicarAnuncio} disabled={loading} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl text-sm shadow-md cursor-pointer disabled:opacity-50 transition-colors">{loading ? 'Enviando...' : 'Publicar Aviso'}</button>
+              </div>
+
+              {/* LISTA EN TIEMPO REAL */}
+              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-800">
+                <h3 className="text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-3">Anuncios Activos (En tiempo real)</h3>
+                <div className="space-y-3 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                  {anuncios.length > 0 ? (
+                    anuncios.map(anuncio => (
+                      <div key={anuncio.id || anuncio.created_at} className="bg-purple-50/50 dark:bg-purple-900/10 p-3 rounded-xl border border-purple-100 dark:border-purple-800/30">
+                        <h4 className="font-bold text-sm text-purple-800 dark:text-purple-300">{anuncio.titulo}</h4>
+                        <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 line-clamp-2">{anuncio.mensaje}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-slate-400 italic">No hay anuncios publicados.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
