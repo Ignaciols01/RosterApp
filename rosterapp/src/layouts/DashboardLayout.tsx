@@ -74,7 +74,11 @@ export default function DashboardLayout() {
           </div>
           <span className="text-lg font-extrabold text-blue-700 dark:text-blue-400 tracking-tight transition-colors duration-300">RosterApp</span>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="relative p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors duration-300">
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+          aria-label={isMobileMenuOpen ? "Cerrar menú móvil" : "Abrir menú móvil"}
+          className="relative p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors duration-300"
+        >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {isMobileMenuOpen ? (
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -115,7 +119,11 @@ export default function DashboardLayout() {
         {/* LOGO MÓVIL */}
         <div className="md:hidden p-5 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center transition-colors duration-300">
           <span className="font-extrabold text-slate-800 dark:text-white transition-colors duration-300">Menú</span>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors duration-300">
+          <button 
+            onClick={() => setIsMobileMenuOpen(false)} 
+            aria-label="Cerrar menú móvil"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors duration-300"
+          >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -167,7 +175,11 @@ export default function DashboardLayout() {
             </div>
           </div>
           
-          <button onClick={handleLogout} className="w-full text-center py-2.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 rounded-lg transition-colors duration-300 cursor-pointer uppercase tracking-wider">
+          <button 
+            onClick={handleLogout} 
+            aria-label="Cerrar Sesión"
+            className="w-full text-center py-2.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 rounded-lg transition-colors duration-300 cursor-pointer uppercase tracking-wider"
+          >
             Cerrar Sesión
           </button>
         </div>

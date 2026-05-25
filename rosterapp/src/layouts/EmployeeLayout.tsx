@@ -117,7 +117,11 @@ export default function EmployeeLayout() {
 
         <div className="hidden md:flex items-center gap-6">
           <div className="relative">
-            <button onClick={() => setShowNotifPanel(!showNotifPanel)} className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white transition-colors cursor-pointer bg-slate-100 dark:bg-slate-800/50 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800">
+            <button 
+              onClick={() => setShowNotifPanel(!showNotifPanel)} 
+              aria-label="Ver notificaciones"
+              className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white transition-colors cursor-pointer bg-slate-100 dark:bg-slate-800/50 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800"
+            >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
               {notificaciones.length > 0 && (
                 <span className="absolute top-1 right-1.5 flex h-2.5 w-2.5">
@@ -142,7 +146,11 @@ export default function EmployeeLayout() {
                              <div>
                                 <p className="text-sm font-bold text-slate-800 dark:text-white leading-tight mb-1.5">{n.titulo}</p>
                                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-snug">{n.mensaje}</p>
-                                <button onClick={() => marcarComoLeida(n.id_notificacion)} className="mt-3 text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-600 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer w-full text-center">
+                                <button 
+                                  onClick={() => marcarComoLeida(n.id_notificacion)} 
+                                  aria-label={`Marcar notificación como leída: ${n.titulo}`}
+                                  className="mt-3 text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-600 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer w-full text-center"
+                                >
                                   Entendido (Marcar leída)
                                 </button>
                              </div>
@@ -171,12 +179,21 @@ export default function EmployeeLayout() {
             )}
           </div>
           
-          <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 rounded-xl transition-colors cursor-pointer" title="Cerrar Sesión">
+          <button 
+            onClick={handleLogout} 
+            aria-label="Cerrar Sesión"
+            className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 rounded-xl transition-colors cursor-pointer" 
+            title="Cerrar Sesión"
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
           </button>
         </div>
 
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+          aria-label={isMobileMenuOpen ? "Cerrar menú móvil" : "Abrir menú móvil"}
+          className="md:hidden relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+        >
            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              {isMobileMenuOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />}
            </svg>
@@ -198,7 +215,13 @@ export default function EmployeeLayout() {
                     <div key={n.id_notificacion} className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-gray-200 dark:border-slate-700/50">
                        <p className={`text-xs font-bold mb-1 ${n.titulo.toLowerCase().includes('aprobado') ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{n.titulo}</p>
                        <p className="text-[10px] text-slate-600 dark:text-slate-300 leading-tight mb-3">{n.mensaje}</p>
-                       <button onClick={() => marcarComoLeida(n.id_notificacion)} className="w-full text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 py-1.5 rounded font-bold uppercase tracking-wider">Descartar</button>
+                       <button 
+                         onClick={() => marcarComoLeida(n.id_notificacion)} 
+                         aria-label={`Descartar notificación: ${n.titulo}`}
+                         className="w-full text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 py-1.5 rounded font-bold uppercase tracking-wider"
+                       >
+                         Descartar
+                       </button>
                     </div>
                  )) : (
                     <p className="text-xs text-slate-400 dark:text-slate-500 italic">No hay avisos nuevos.</p>
@@ -216,7 +239,13 @@ export default function EmployeeLayout() {
             </NavLink>
 
             <NavLink to="/empleado/configuracion" onClick={() => setIsMobileMenuOpen(false)} className={({isActive}) => `px-4 py-3 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>Configuración</NavLink>
-            <button onClick={handleLogout} className="text-left px-4 py-3 rounded-xl text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 mt-2 border-t border-gray-100 dark:border-slate-800">Cerrar Sesión</button>
+            <button 
+              onClick={handleLogout} 
+              aria-label="Cerrar Sesión"
+              className="text-left px-4 py-3 rounded-xl text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 mt-2 border-t border-gray-100 dark:border-slate-800"
+            >
+              Cerrar Sesión
+            </button>
           </nav>
         </div>
       )}
