@@ -33,24 +33,67 @@ export default function EmployeeMensajes() {
 
   const mensajesEndRef = useRef<HTMLDivElement>(null);
 
+  // Efecto global: Carga inicial y escucha en TIEMPO REAL para actualizar la barra lateral
   useEffect(() => {
     fetchAdministradores();
     fetchSinLeer();
     fetchContactosPrevios();
 
-    const interval = setInterval(() => {
-      fetchSinLeer();
-      fetchContactosPrevios();
-    }, 5000);
-    return () => clearInterval(interval);
+    const channelSidebar = supabase
+      .channel('sidebar-employee')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mensajes' },
+        (payload) => {
+          const m = payload.new as Mensaje;
+          if (m.receptor_id === miId || m.emisor_id === miId) {
+            fetchSinLeer();
+            fetchContactosPrevios();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channelSidebar);
+    };
   }, []);
 
+  // Efecto local: Carga los mensajes y escucha en TIEMPO REAL el chat activo
   useEffect(() => {
-    if (contactoActivo) {
-      fetchMensajes();
-      const interval = setInterval(fetchMensajes, 5000);
-      return () => clearInterval(interval);
-    }
+    if (!contactoActivo) return;
+    
+    fetchMensajes();
+    
+    const channelChat = supabase
+      .channel('chat-employee')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mensajes' },
+        (payload) => {
+          const m = payload.new as Mensaje;
+          if (
+            (m.emisor_id === contactoActivo.id_usuario && m.receptor_id === miId) ||
+            (m.emisor_id === miId && m.receptor_id === contactoActivo.id_usuario)
+          ) {
+            setMensajes(prev => {
+              if (prev.some(msg => msg.id_mensaje === m.id_mensaje)) return prev;
+              return [...prev, m];
+            });
+            
+            if (m.receptor_id === miId) {
+              supabase.from('mensajes').update({ leido: true }).eq('id_mensaje', m.id_mensaje).then(() => {
+                fetchSinLeer();
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channelChat);
+    };
   }, [contactoActivo]);
 
   useEffect(() => {
@@ -132,17 +175,12 @@ export default function EmployeeMensajes() {
       contenido: nuevoMensaje.trim()
     };
 
+    setNuevoMensaje(''); 
     const { error } = await supabase.from('mensajes').insert([bMsj]);
     
-    if (!error) {
-      setNuevoMensaje(''); 
-      fetchMensajes();
-      if (!contactosPrevios.includes(contactoActivo.id_usuario)) {
-        setContactosPrevios(prev => [...prev, contactoActivo.id_usuario]);
-      }     
-    } else {
+    if (error) {
       console.error("Error al enviar mensaje:", error);
-      alert("No se pudo enviar el mensaje. Revisa la consola para más detalles.");
+      alert("No se pudo enviar el mensaje.");
     }
   };
 

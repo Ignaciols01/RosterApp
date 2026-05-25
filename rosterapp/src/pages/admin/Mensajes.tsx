@@ -34,24 +34,72 @@ export default function AdminMensajes() {
   
   const mensajesEndRef = useRef<HTMLDivElement>(null);
 
+  // Efecto global: Carga inicial y escucha en TIEMPO REAL para actualizar la barra lateral
   useEffect(() => {
     fetchEmpleados();
     fetchSinLeer();
     fetchContactosPrevios();
     
-    const interval = setInterval(() => {
-      fetchSinLeer();
-      fetchContactosPrevios();
-    }, 5000);
-    return () => clearInterval(interval);
+    // Suscripción WebSocket para la barra lateral (Avisos de nuevos chats/mensajes)
+    const channelSidebar = supabase
+      .channel('sidebar-admin')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mensajes' },
+        (payload) => {
+          const m = payload.new as Mensaje;
+          if (m.receptor_id === miId || m.emisor_id === miId) {
+            fetchSinLeer();
+            fetchContactosPrevios();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channelSidebar);
+    };
   }, []);
 
+  // Efecto local: Carga los mensajes y escucha en TIEMPO REAL el chat activo
   useEffect(() => {
-    if (contactoActivo) {
-      fetchMensajes();
-      const interval = setInterval(fetchMensajes, 5000);
-      return () => clearInterval(interval);
-    }
+    if (!contactoActivo) return;
+    
+    fetchMensajes();
+    
+    // Suscripción WebSocket para el chat activo
+    const channelChat = supabase
+      .channel('chat-admin')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mensajes' },
+        (payload) => {
+          const m = payload.new as Mensaje;
+          // Comprobamos si el mensaje nuevo pertenece a la conversación abierta
+          if (
+            (m.emisor_id === contactoActivo.id_usuario && m.receptor_id === miId) ||
+            (m.emisor_id === miId && m.receptor_id === contactoActivo.id_usuario)
+          ) {
+            // Añadimos el mensaje al instante evitando duplicados
+            setMensajes(prev => {
+              if (prev.some(msg => msg.id_mensaje === m.id_mensaje)) return prev;
+              return [...prev, m];
+            });
+            
+            // Si el mensaje es para mí y estoy en el chat, lo marco como leído
+            if (m.receptor_id === miId) {
+              supabase.from('mensajes').update({ leido: true }).eq('id_mensaje', m.id_mensaje).then(() => {
+                fetchSinLeer();
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channelChat);
+    };
   }, [contactoActivo]);
 
   useEffect(() => {
@@ -133,17 +181,12 @@ export default function AdminMensajes() {
       contenido: nuevoMensaje.trim()
     };
 
+    setNuevoMensaje(''); // Limpiamos el input instantáneamente por UX
     const { error } = await supabase.from('mensajes').insert([bMsj]);
     
-    if (!error) {
-      setNuevoMensaje(''); 
-      fetchMensajes();
-      if (!contactosPrevios.includes(contactoActivo.id_usuario)) {
-        setContactosPrevios(prev => [...prev, contactoActivo.id_usuario]);
-      }
-    } else {
+    if (error) {
       console.error("Error al enviar mensaje:", error);
-      alert("No se pudo enviar el mensaje. Revisa la consola para más detalles.");
+      alert("No se pudo enviar el mensaje.");
     }
   };
 
