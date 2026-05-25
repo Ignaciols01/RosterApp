@@ -32,12 +32,17 @@ export default function AdminDashboard() {
   const [alertasPlanificacion, setAlertasPlanificacion] = useState<AlertaPlanificacion[]>([]);
   
   const [showModal, setShowModal] = useState(false);
-  const [empleados, setEmpleados] = useState<{id_usuario: string, nombre: string}[]>([]);
+  
+  // Añado el 'email' a mi lista de empleados para poder pasárselo a Make después
+  const [empleados, setEmpleados] = useState<{id_usuario: string, nombre: string, email: string}[]>([]);
   const [selectedEmpleado, setSelectedEmpleado] = useState('');
   const [tipoRepeticion, setTipoRepeticion] = useState('unico');
   const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
   const [horaInicio, setHoraInicio] = useState('08:00');
   const [horaFin, setHoraFin] = useState('15:00');
+
+  // Creo este estado para bloquear el botón mientras guardo y evitar que se me envíen correos dobles
+  const [guardandoTurno, setGuardandoTurno] = useState(false);
 
   const [showModalBorrar, setShowModalBorrar] = useState(false);
   const [borrarEmpleado, setBorrarEmpleado] = useState('');
@@ -138,13 +143,31 @@ export default function AdminDashboard() {
   };
 
   const fetchEmpleados = async () => {
-    const { data } = await supabase.from('usuarios').select('id_usuario, nombre').eq('rol', 'empleado');
-    if (data) setEmpleados(data);
+    // Me aseguro de descargar el email también para mis notificaciones de Make
+    const { data } = await supabase.from('usuarios').select('id_usuario, nombre, email').eq('rol', 'empleado');
+    if (data) setEmpleados(data as any);
   };
 
   const fetchSolicitudes = async () => {
     const { data } = await supabase.from('solicitudes_libres').select('id_solicitud, fecha_solicitada, estado, usuarios(id_usuario, nombre)').eq('estado', 'pendiente');
     if (data) setSolicitudes(data as any);
+  };
+
+  // Conecto mi aplicación con mi escenario limpio de Make
+  const notificarNuevosTurnos = async (emailEmpleado: string, nombreEmpleado: string) => {
+    try {
+      const urlWebhookMake = 'https://hook.eu1.make.com/iy8v187nohkjcg46i4ux22rmwfte5bkn';
+      if (!urlWebhookMake) return;
+
+      // Envío únicamente el email y el nombre para disparar un solo correo genérico
+      await fetch(urlWebhookMake, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailEmpleado, nombre: nombreEmpleado })
+      });
+    } catch (error) {
+      console.error("No se pudo notificar al empleado:", error);
+    }
   };
 
   const gestionarSolicitud = async (id: string, user: string, fecha: string, acc: 'aprobada' | 'rechazada') => {
@@ -183,7 +206,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // CONTROL DE INSERCIÓN DEL TABLÓN CORREGIDO (AUTOR INMUTABLE "ADMINISTRACIÓN")
   const handlePublicarAnuncio = async () => {
     if (!tituloAnuncio || !mensajeAnuncio) {
       setAlerta({ titulo: 'Aviso', texto: 'Rellena el título y el mensaje del anuncio.', tipo: 'error' });
@@ -232,11 +254,17 @@ export default function AdminDashboard() {
   const toggleDia = (dia: string) => { setDiasSeleccionados(prev => prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]); };
 
   const handleGuardarTurno = async () => {
+    // Si ya está guardando, ignoro el clic para no duplicar correos ni datos
+    if (guardandoTurno) return;
+    
     if (!selectedEmpleado || diasSeleccionados.length === 0) {
       setAlerta({ titulo: 'Aviso', texto: 'Selecciona un empleado y al menos un día.', tipo: 'error' });
       return;
     }
+    
+    setGuardandoTurno(true); // Bloqueo la función
     setLoading(true);
+    
     try {
       const lunesRef = getLunes(fechaReferencia);
       const mapaDias: { [key: string]: number } = { 'Lun': 0, 'Mar': 1, 'Mié': 2, 'Jue': 3, 'Vie': 4, 'Sáb': 5, 'Dom': 6 };
@@ -269,12 +297,20 @@ export default function AdminDashboard() {
           if (eA) throw new Error(eA.message);
         }
       }
-      setAlerta({ titulo: '¡Éxito!', texto: 'Turnos guardados correctamente.', tipo: 'exito' });
+
+      // Una vez insertados todos los turnos, aviso a Make una sola vez
+      const empleadoSeleccionado = empleados.find(emp => emp.id_usuario === selectedEmpleado);
+      if (empleadoSeleccionado && empleadoSeleccionado.email) {
+        await notificarNuevosTurnos(empleadoSeleccionado.email, empleadoSeleccionado.nombre);
+      }
+
+      setAlerta({ titulo: '¡Éxito!', texto: 'Turnos guardados y notificados correctamente.', tipo: 'exito' });
       setShowModal(false); setDiasSeleccionados([]); await cargarTodo(); await fetchTurnosCalendario();
     } catch (err: any) {
       setAlerta({ titulo: 'Error al guardar', texto: err.message, tipo: 'error' });
     } finally {
       setLoading(false);
+      setGuardandoTurno(false); // Libero el botón al terminar
     }
   };
 
@@ -563,7 +599,13 @@ export default function AdminDashboard() {
               </div>
               <div className="pt-4 border-t border-gray-100 dark:border-slate-800 flex gap-3 transition-colors duration-300">
                 <button onClick={() => setShowModal(false)} className="flex-1 bg-white dark:bg-[#1e293b] border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300 font-bold py-3 rounded-xl transition-colors cursor-pointer shadow-sm text-sm">Cancelar</button>
-                <button onClick={handleGuardarTurno} disabled={loading} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm shadow-md cursor-pointer disabled:opacity-50 transition-colors">{loading ? 'Guardando...' : 'Confirmar Turno'}</button>
+                <button 
+                  onClick={handleGuardarTurno} 
+                  disabled={loading || guardandoTurno} 
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm shadow-md cursor-pointer disabled:opacity-50 transition-colors"
+                >
+                  {guardandoTurno ? 'Guardando...' : (loading ? 'Cargando...' : 'Confirmar Turno')}
+                </button>
               </div>
             </div>
           </div>
